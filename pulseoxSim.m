@@ -1,12 +1,12 @@
 clear
 load("Finger_SpO2sim_0120.mat")
 
-%% Plot Raw Data
+%% Extract Raw Data
 % The full data uses 8 wavelengths. We choose two from them (730 nm and 830 nm)
 data = data(:,[1,7])';
 
 %% Filter the data
-[b,a] = butter(2, [0.66,15]/(Fs/2));
+[b,a] = butter(2, [0.66,5]/(Fs/2));
 filtData = filtfilt(b,a,data')';
 % Extract the slow drifting
 [b2,a2] = butter(2, 0.66/(Fs/2));
@@ -15,7 +15,7 @@ slow = filtfilt(b2,a2,data')';
 %% Peak-to-Peak Amplitude Estimation and Calculating r-values
 amps=[];
 win=2;  % Window size in seconds
-zero_noise_amps = rvalEstimation(filtData, data, Fs, win);
+zero_noise_amps = rvalEstimation(filtfilt(b,a,filtData'+slow')', data, Fs, win);
 
 %% Noisy Data and Bias Estimation 
 
@@ -60,7 +60,7 @@ end
 zero_noise_rvals = mean(zero_noise_amps(1,:) ./ zero_noise_amps(2,:),2);
 rvals_bias = rvals - zero_noise_rvals;
 
-save('r_results', 'rvals', 'rvals_bias', 'rvals_var', 'zero_noise_rvals');
+% save('r_results', 'rvals', 'rvals_bias', 'rvals_var', 'zero_noise_rvals');
 
 %% Plot the bias
 pos = [1070,320,850,700];
@@ -99,18 +99,3 @@ c = get(hcb,'Title');
 set(c,'String','$\frac{SNR_1}{SNR_2}$','Interpreter','Latex');
 set(gca,"FontSize",20)
 
-%% Plot bias-over-stdev
-figure, hold on
-set(gcf, 'Position', pos)
-newcolors = colorwheel(round(linspace(1,256,7)),:);
-for i=1:length(snr730_div_snr830)
-    plot(sqrt(vars_730), mean(rvals_bias(i,:,:),3)./sqrt(mean(rvals_var(i,:,:),3)), 'LineWidth', 2, 'Color', newcolors(i,:))
-end
-
-xlabel('Noise StDev of 730nm Wave ($$\Delta_1$$)','Interpreter','Latex')
-ylabel('$$Bias[\hat{R}]/StDev(\hat{R})$$','Interpreter','Latex')
-hcb=colorbar('Ticks',[0,0.25,0.5,0.75,1],...
-         'TickLabels',{'4','5/2','1','2/5','1/4'});
-c = get(hcb,'Title');
-set(c,'String','$\frac{SNR_1}{SNR_2}$','Interpreter','Latex');
-set(gca,"FontSize",20)
